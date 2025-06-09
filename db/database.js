@@ -1,17 +1,15 @@
 const { Pool } = require('pg');
 
-// Replace with your actual connection settings if different
+// Replace with your actual database credentials
 const pool = new Pool({
-  user: 'your_db_user',
-  password: 'your_db_password',
+  user: 'labber',
+  password: 'labber',
   host: 'localhost',
   database: 'lightbnb'
 });
 
 /**
  * Get a single user from the database given their email.
- * @param {String} email The email of the user.
- * @return {Promise<Object|null>} A promise to the user object, or null if not found.
  */
 const getUserWithEmail = function (email) {
   return pool
@@ -30,8 +28,6 @@ const getUserWithEmail = function (email) {
 
 /**
  * Get a single user from the database given their id.
- * @param {String} id The id of the user.
- * @return {Promise<Object|null>} A promise to the user object, or null if not found.
  */
 const getUserWithId = function (id) {
   return pool
@@ -50,8 +46,6 @@ const getUserWithId = function (id) {
 
 /**
  * Add a new user to the database.
- * @param {{name: string, email: string, password: string}} user The user to add.
- * @return {Promise<Object>} A promise to the new user object.
  */
 const addUser = function (user) {
   const { name, email, password } = user;
@@ -71,9 +65,36 @@ const addUser = function (user) {
     });
 };
 
-// Export the functions so they can be used in other parts of the app
+/**
+ * Get all reservations for a single user.
+ */
+const getAllReservations = function (guest_id, limit = 10) {
+  return pool
+    .query(
+      `
+      SELECT properties.*, reservations.*, AVG(property_reviews.rating) AS average_rating
+      FROM reservations
+      JOIN properties ON reservations.property_id = properties.id
+      LEFT JOIN property_reviews ON properties.id = property_reviews.property_id
+      WHERE reservations.guest_id = $1
+        AND reservations.end_date < NOW()::date
+      GROUP BY properties.id, reservations.id
+      ORDER BY reservations.start_date
+      LIMIT $2;
+      `,
+      [guest_id, limit]
+    )
+    .then(res => res.rows)
+    .catch(err => {
+      console.error('Error in getAllReservations:', err.stack);
+      return null;
+    });
+};
+
+// Export all functions
 module.exports = {
   getUserWithEmail,
   getUserWithId,
-  addUser
+  addUser,
+  getAllReservations
 };
